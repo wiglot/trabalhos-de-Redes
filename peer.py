@@ -114,6 +114,8 @@ class ConnectionsHandler(Thread):
                 data = i.recv(64)
                 if data.strip() in ["CONNECT"]:
                     i.send(str(self.connectPeer()))
+                if data .strip() == "ARE YOU ALIVE?":
+                    i.send("YES, I AM.")
                 i.close()
 
     def connectPeer(self):
@@ -196,39 +198,35 @@ class Configure:
                 self.__filesList.append(arquivo)
 
 
-class Peer:
-    def __init__(self,  configure):
-        self.__configure = configure;
-        
-    def startPeer(self):
-        self.__handler = ConnectionsHandler(configure.getPort(),  configure.getFilesList())
-        self.__handler.start()
-        while (1):
-            #Espera entrada do usuário para receber o nome do arquivo
-            filename = str(raw_input("Digite o nome de um arquivo: "))
-            #Procura no servidor (tracker) por um peer que contenha o arquivo.
-            peerIp = "127.0.0.1"
-            peerPort = 3333
-            #pede o arquivo para o peer.
-            self.fetchFile(filename,  peerIp,  peerPort,  "THIS HASH")
-    
-    def fetchFile(self,  fileName,  peerIp,  peerPort,  hash):
+class FetchFile(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+    def setFileData(self,  fileName,  peerIP, peerPort,  hash):
+        self.__fileName = fileName
+        self.__peerIP = peerIP
+        self.__peerPort = peerPort
+        self.__hash = hash
+    def run(self):
+        print "my thread!"
+        self.__fetchFile__()
+        print "end of transfer: "+self.__fileName
+    def __fetchFile__(self):
         
         conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         connect2 = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         
-        conn.connect((peerIp, (peerPort)))
+        conn.connect((self.__peerIP, (self.__peerPort)))
         conn.send("CONNECT")
         data = conn.recv(64)
         newPeerPort = int(data)
         conn.close()
         del conn
         
-        connect2.connect((peerIp, (newPeerPort)))
-        connect2.send(str(fileName))
+        connect2.connect((self.__peerIP, (newPeerPort)))
+        connect2.send(str(self.__fileName))
         data = connect2.recv(2)
         if data =="OK":
-            f = open(fileName,"wb")
+            f = open(self.__fileName,"wb")
             while 1:
                 data = connect2.recv(1024)
                 if not data:
@@ -236,8 +234,8 @@ class Peer:
                 f.write(data)
             f.close() 
             #fileHash = "HASH"
-            f = open(fileName,  "rb")
-            fileHash = str(calculate(fileName,  0x100000))
+            f = open(self.__fileName,  "rb")
+            fileHash = str(calculate(self.__fileName,  0x100000))
             f.close()
             if hash != fileHash:
                 print "Hash Fail!"
@@ -246,6 +244,59 @@ class Peer:
         connect2.close()
         del connect2
     #    Recebe arquivo.
+    
+class Peer:
+    def __init__(self,  configure):
+        self.__configure = configure;
+        self.__newFiles = 1
+    def startPeer(self):
+        self.__handler = ConnectionsHandler(configure.getPort(),  configure.getFilesList())
+        self.__handler.start()
+        while (1):
+            #Espera entrada do usuário para receber o nome do arquivo
+            filename = str(raw_input("Digite o nome de um arquivo(quit para sair): "))
+            if filename == 'quit':
+                del self.__handler
+                exit()
+#            connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+#            connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+#            connServer.send("CONNECT")
+#            newPort = int(connServer.recv(8))
+#            connServer.close()
+#            del connServer
+#            
+#            newConn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+#            newConn.connect((self.__configure.getServerIP(),  newPort))
+#            newConn.send("I AM HERE")
+#            data = newConn.recv(16)
+#            if data.strip() == "YOU CHANGED?":
+#                if self.__newFiles:
+#                    newConn.send("YES")
+##                    Aqui envia as informações do peer
+#                    self.__newFiles = 0
+#                else:
+#                    newConn.send("NO")
+#                data = newConn.recv(12)
+#                if data.strip() == "SAY FILE":
+#                    newConn.send(filename)
+#                    data = newConn.recv(1024)
+#                newConn.close()
+#                del newConn
+                
+#                Possivel retorno do servidor...
+            data = '127.0.0.1:3333:HASH FAIL'
+            data = data.rsplit(':')
+            peerIP = data[0]
+            peerPort = int(data[1])
+            hash = data[2]
+                
+            #Procura no servidor (tracker) por um peer que contenha o arquivo.
+            #pede o arquivo para o peer.
+            fetch = FetchFile()
+            fetch.setFileData(filename,  peerIP,  peerPort,  "THIS HASH")
+            fetch.start()
+    
+    
 
 block_size = 0x100000
 configure = Configure()
