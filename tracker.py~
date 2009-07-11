@@ -1,0 +1,90 @@
+# -*- coding: utf-8 -*-
+from hashlib import md5
+import os
+
+class Configure:
+	
+	def __init__(self):
+		self.__filesDir = ""
+		self.__maxPeersPerFile = 0
+	def getMaxPeersPerFile(self):
+		return self.__maxPeersPerFile
+
+	def readConfigure(self, file):
+		config = open(file)
+		str = config.read()
+		pos = str.find('shared')
+		pos =  str.find(' ', pos)
+		posFinal = str.find(';', pos)
+		for i in range( (pos+1), posFinal ):
+			self.__filesDir+= str[i]
+
+		pos = str.find('maxPeersPerFile')
+		pos =  str.find(' ', pos)
+		posFinal = str.find(';', pos)
+		maxPeer = ''
+		for i in range( (pos+1), posFinal ):
+			maxPeer+= str[i]
+		self.__maxPeersPerFile = int(maxPeer)
+	
+		return self.__filesDir
+
+
+class Arquivos:
+	def __init__(self):
+		self.__name = ''
+		self.__path = ''
+		self.__md5Hash = ''
+		self.__size = 0
+	def printData(self):
+		print self.__name, self.__path, self.__md5Hash, self.__size
+
+	def setName(self, name):
+		self.__name = name
+	def setPath(self, path):
+		self.__path = path
+	def setHash(self, md5Hash):
+		self.__md5Hash = md5Hash
+	def setSize(self, size):
+		self.__size = size
+
+	def getName(self):
+		return self.__name
+	def getPath(self):
+		return self.__path
+	def getFullName(self)
+		return os.path.join(filesDir, i)
+	def getHash(self):
+		return self.__md5hash 
+	def getSize(self):
+		return self.__size
+
+def upd(m, data):
+       m.update(data)
+       return m
+
+def calculate(fname, block_size):
+       fd = open(fname, "rb")
+       contents = iter(lambda: fd.read(block_size), "")
+       m = reduce(upd, contents, md5())
+       fd.close()
+       return m.hexdigest()
+
+
+block_size = 0x100000
+configure = Configure()
+
+filesList = []
+filesDir = configure.readConfigure("tracker.conf")
+
+cont = 0
+for i in os.listdir(filesDir):
+	if not os.path.isdir(os.path.join(filesDir, i)):
+		filesList.append(new Arquivos)
+		filesList[cont].setName(i)
+		filesList[cont].setPath(filesDir)
+		filesList[cont].setHash(calculate(filesList[cont].getFullName, block_size))
+		filesList[cont].setSize(100)
+		filesList[cont].printData()
+
+print configure.getMaxPeersPerFile()
