@@ -2,12 +2,39 @@
 from hashlib import md5
 import os
 
-class server:
+class ConnectPeer(Thread):
+    def __init__(self,  port,  control):
+        Thread.__init__(self)
+        self.__port = port
+        self.__control = control
+    def run(self):
+        self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+        self.__conn.bind( ("", self.__port) )
+        self.__conn.listening_socket.listen(1)
+        
+        while 1:
+            i, addr = self.__conn.accept()
+            data = i.recv(12)
+            if data.strip() == "I AM HERE":
+                i.send("YOU CHANGED?")
+                data = i.recv(3)
+                if data.strip() == "NO"
+                    i.send("SAY FILE")
+                    data = i.recv(256)
+                    i.send(self.__control.findFile(data.strip()))
+                else:
+                    print "Receber dados do peer!!!"
+            
+class Server:
     def __init__(self):
-        __clientPort = 0
-        __serverPort = 0
-        __peer = 0
-
+        self.__serverPort = 0
+        self.__
+    def start(self,  configure):
+        self.__serverPort = configure.getPort()
+        
+    def setControl(self,  control):
+        self.__control = control
+    
 class Configure:
     def __init__(self):
         self.__filesDir = ""
@@ -94,7 +121,7 @@ class peer():
     def getPort(self):
         return self.__port
 
-class control():
+class Control():
     def __init__(self):
         self.__peers = []
         self.__files = []
@@ -156,7 +183,7 @@ files = []
 files.append(file)
 files.append(file1)
 peer.addFilesShared(files)
-control = control()
+control = Control()
 control.addPeer(peer)
 control.addPeer(peer)
 print control.findFile('Blah')
