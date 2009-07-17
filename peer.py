@@ -300,9 +300,9 @@ class Peer:
                             break
                         data += newData
                     data = data.split(':')
-                    for i in range(0,  len(data),  3):
+                    for i in range(0,  len(data),  4):
                         if len(data)-1 >=2:
-                            print data[i], ' - ' , data[i+1], ' - ',  data[i+2]
+                            print data[i], ' - ' , data[i+1], ' - ',  data[i+2],  ' - ',  data[i+3]
                     connServer.close()
                 else:
 #                    connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )

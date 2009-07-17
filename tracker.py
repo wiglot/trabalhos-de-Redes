@@ -173,6 +173,8 @@ class Files():
         return self.__peer
     def getNextPeer(self):
         return self.__nextPeer
+    def getNumPeers(self):
+        return len(self.__peer)
 
 class Peer():
     def __init__(self):
@@ -204,6 +206,7 @@ class Control():
     def listOfFiles(self):
         data = ''
         for i in self.__files:
+            data += ':' + str(i.getNumPeers())
             data += ':' + i.getName()
             data += ':' + str(i.getSize())
             data += ':' + i.getHash()
@@ -218,15 +221,17 @@ class Control():
         
         print addr + ":"+ str(port)
         del data[0]
-        
+        print len(data)
         fileList = []
         size = 0
         name = ''
         for i in range(0,  len(data)):
             if i % 3 == 0:
                 name = data[i]
+                print name
             elif i%3 == 1:
                 size = int (data[i])
+                print size
             else:
                 file = Files()
                 file.setSize(size)
@@ -235,28 +240,38 @@ class Control():
                 fileList.append(file)
                 name = ''
                 size = 0
+                print file.getName()
         peer = Peer()
         peer.setIP(addr)
         peer.setPort(port)
+        print 'Num arquivos compartilhados ',  len(fileList)
         peer.addFilesShared(fileList)
         self.addPeer(peer)
+        print peer.getFilesShared()
         
     def addPeer(self, peer):
+        noFile = 1
         for i in self.__peers:
-            if peer.getPort() ==  i.getPort():
-                if peer.getIP() == i.getIP():
-                    self.removePeer(peer)
+            if peer.getPort() ==  i.getPort() and peer.getIP() == i.getIP():
+                    self.removePeer(i)
                     break
         self.__peers.append(peer)
-        for file in peer.getFilesShared():
-            self.__files.append(file)
-            file.addPeer(peer)
-            print file.getName()
+        for newFile in peer.getFilesShared():
+#            print newFile.getNome()
+            for file in self.__files:
+                if newFile.getNome() == file.getNome:
+                    noFile = 0
+                    #break
+            if noFile == 1:
+                self.__files.append(newFile)
+            newFile.addPeer(peer)
+            print newFile.getName()
     
     def removePeer(self,  peer):
         for f in self.__files:
             if peer in f.getPeersList():
                 f.removePeer(peer)
+        
 
     def findFile(self,  name):
         found = 0
