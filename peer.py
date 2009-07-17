@@ -16,8 +16,6 @@ def calculate(fname, block_size):
        fd.close()
        return m.hexdigest()
 
-
-
 class Files():
     def __init__(self):
         self.__name = ''
@@ -68,9 +66,15 @@ class ConnectedPeer(Thread):
             self.__filesDir = filesDir
             
             self.listening_socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-            self.listening_socket.bind( ("", self.__port) )
-            self.listening_socket.listen(1)
-            
+            self.listening_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            while 1:
+                try:
+                    self.listening_socket.bind( ("", self.__port) )
+                    self.listening_socket.listen(1)
+                    break
+                except:
+                    self.__port += 1
+
     def run(self):
         print 'Teste...',  self.__port
         i, addr = self.listening_socket.accept()
@@ -94,36 +98,44 @@ class ConnectedPeer(Thread):
             i.send("FILE NOT FOUND: " + str(data.strip()))
         i.close()
         del i
-        #Aqui precisa Fechar a porta
+        self.listening_socket.close()
+    def getPort(self):
+        return self.__port
         
 class ConnectionsHandler(Thread):
-    def __init__(self,  port,  filesList):
+    def __init__(self,  configure):
             Thread.__init__(self)
             self.__peers = []
-            self.__port = int (port)
+            self.__port = configure.getPort()
             self.__initialPort = 10000
-            self.__filesList = filesList
+            self.__filesList = configure.getFilesList()
             self.listening_socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
             self.listening_socket.bind( ("", self.__port) )
             self.listening_socket.listen(1)
-            
+
     def run(self):
             print 'my run...'
             while (1):
                 i, addr = self.listening_socket.accept()
                 data = i.recv(64)
                 if data.strip() in ["CONNECT"]:
-                    i.send(str(self.connectPeer()))
-                if data .strip() == "ARE YOU ALIVE?":
+                    if len(self.__peers) < configure.getMaxPeers():
+                        i.send(str(self.connectPeer()))
+                    else:
+                        i.send("NO CONNECTION")
+                elif data.strip() == "ARE YOU ALIVE?":
                     i.send("YES, I AM.")
+                else:
+                    data = data.split(':')
+                    if (data[0] == "FINISH"):
+                        del self.__peers [int(data[1])]
                 i.close()
 
     def connectPeer(self):
-            newPeer = ConnectedPeer(self.__initialPort + len(self.__peers) + 1,  self.__filesList)
+            newPeer = ConnectedPeer(self.__initialPort,  self.__filesList)
             self.__peers.append(newPeer)
             newPeer.start()
-            return self.__initialPort + len(self.__peers)
-
+            return newPeer.getPort()
 
 class Configure:
     def __init__(self):
@@ -146,6 +158,18 @@ class Configure:
         return self.__serverPort
     def getFilesList(self):
         return self.__filesList
+        
+    def refreshFileList(self):
+        del self.__filesList [:]
+            
+        for i in os.listdir(self.__filesDir):
+            if not os.path.isdir(os.path.join(self.__filesDir, i)):
+                arquivo = Files()
+                arquivo.setName(i)
+                arquivo.setPath(self.__filesDir)
+                arquivo.setHash(calculate(arquivo.getFullName(), block_size))
+                arquivo.setSize(os.path.getsize(arquivo.getFullName()))
+                self.__filesList.append(arquivo)
         
     def readConfigure(self, file):
         config = open(file)
@@ -188,14 +212,7 @@ class Configure:
             tmp+= str[i]
         self.__serverPort = int(tmp)
         
-        for i in os.listdir(self.__filesDir):
-            if not os.path.isdir(os.path.join(self.__filesDir, i)):
-                arquivo = Files()
-                arquivo.setName(i)
-                arquivo.setPath(self.__filesDir)
-                arquivo.setHash(calculate(arquivo.getFullName(), block_size))
-                arquivo.setSize(os.path.getsize(arquivo.getFullName()))
-                self.__filesList.append(arquivo)
+        self.refreshFileList()
 
 
 class FetchFile(Thread):
@@ -211,7 +228,6 @@ class FetchFile(Thread):
         self.__fetchFile__()
         print "end of transfer: "+self.__fileName
     def __fetchFile__(self):
-        
         conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         connect2 = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         
@@ -249,8 +265,12 @@ class Peer:
     def __init__(self,  configure):
         self.__configure = configure;
         self.__newFiles = 1
+    def refreshFiles(self):
+        self.__newFiles = 1
+        self.__configure.refreshFileList()
+        
     def startPeer(self):
-        self.__handler = ConnectionsHandler(configure.getPort(),  configure.getFilesList())
+        self.__handler = ConnectionsHandler(configure)
         self.__handler.start()
         while (1):
             #Espera entrada do usuário para receber o nome do arquivo
@@ -286,15 +306,17 @@ class Peer:
 #                Possivel retorno do servidor...
             data = '127.0.0.1:3333:HASH FAIL'
             data = data.rsplit(':')
-            peerIP = data[0]
-            peerPort = int(data[1])
-            hash = data[2]
-                
-            #Procura no servidor (tracker) por um peer que contenha o arquivo.
+            if len(data)==1:
+#                Aquivo não encontrado...
+                print "File not found"
+            else:
+                peerIP = data[0]
+                peerPort = int(data[1])
+                hash = data[2]
             #pede o arquivo para o peer.
-            fetch = FetchFile()
-            fetch.setFileData(filename,  peerIP,  peerPort,  "THIS HASH")
-            fetch.start()
+                fetch = FetchFile()
+                fetch.setFileData(filename,  peerIP,  peerPort,  hash)
+                fetch.start()
     
     
 
