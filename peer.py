@@ -147,6 +147,18 @@ class Configure:
     def getFilesList(self):
         return self.__filesList
         
+    def refreshFileList(self):
+        del self.__filesList [:]
+            
+        for i in os.listdir(self.__filesDir):
+            if not os.path.isdir(os.path.join(self.__filesDir, i)):
+                arquivo = Files()
+                arquivo.setName(i)
+                arquivo.setPath(self.__filesDir)
+                arquivo.setHash(calculate(arquivo.getFullName(), block_size))
+                arquivo.setSize(os.path.getsize(arquivo.getFullName()))
+                self.__filesList.append(arquivo)
+        
     def readConfigure(self, file):
         config = open(file)
         str = config.read()
@@ -188,14 +200,7 @@ class Configure:
             tmp+= str[i]
         self.__serverPort = int(tmp)
         
-        for i in os.listdir(self.__filesDir):
-            if not os.path.isdir(os.path.join(self.__filesDir, i)):
-                arquivo = Files()
-                arquivo.setName(i)
-                arquivo.setPath(self.__filesDir)
-                arquivo.setHash(calculate(arquivo.getFullName(), block_size))
-                arquivo.setSize(os.path.getsize(arquivo.getFullName()))
-                self.__filesList.append(arquivo)
+        self.refreshFileList()
 
 
 class FetchFile(Thread):
@@ -249,6 +254,10 @@ class Peer:
     def __init__(self,  configure):
         self.__configure = configure;
         self.__newFiles = 1
+    def refreshFiles(self):
+        self.__newFiles = 1
+        self.__configure.refreshFileList()
+        
     def startPeer(self):
         self.__handler = ConnectionsHandler(configure.getPort(),  configure.getFilesList())
         self.__handler.start()
@@ -286,15 +295,17 @@ class Peer:
 #                Possivel retorno do servidor...
             data = '127.0.0.1:3333:HASH FAIL'
             data = data.rsplit(':')
-            peerIP = data[0]
-            peerPort = int(data[1])
-            hash = data[2]
-                
-            #Procura no servidor (tracker) por um peer que contenha o arquivo.
+            if len(data)==1:
+#                Aquivo não encontrado...
+                print "File not found"
+            else:
+                peerIP = data[0]
+                peerPort = int(data[1])
+                hash = data[2]
             #pede o arquivo para o peer.
-            fetch = FetchFile()
-            fetch.setFileData(filename,  peerIP,  peerPort,  "THIS HASH")
-            fetch.start()
+                fetch = FetchFile()
+                fetch.setFileData(filename,  peerIP,  peerPort,  hash)
+                fetch.start()
     
     
 

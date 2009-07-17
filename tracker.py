@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from hashlib import md5
-import os
+from threading import  Thread
+import os,  socket
 
 class ConnectPeer(Thread):
     def __init__(self,  port,  control):
@@ -10,7 +11,7 @@ class ConnectPeer(Thread):
     def run(self):
         self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         self.__conn.bind( ("", self.__port) )
-        self.__conn.listening_socket.listen(1)
+        self.__conn.listen(1)
         
         while 1:
             i, addr = self.__conn.accept()
@@ -18,7 +19,8 @@ class ConnectPeer(Thread):
             if data.strip() == "I AM HERE":
                 i.send("YOU CHANGED?")
                 data = i.recv(3)
-                if data.strip() == "NO"
+                if data.strip() == "NO":
+                    
                     i.send("SAY FILE")
                     data = i.recv(256)
                     i.send(self.__control.findFile(data.strip()))
@@ -28,9 +30,30 @@ class ConnectPeer(Thread):
 class Server:
     def __init__(self):
         self.__serverPort = 0
-        self.__
-    def start(self,  configure):
-        self.__serverPort = configure.getPort()
+        self.__control = 0
+        self.__connection = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+        
+    def start(self):
+        self.__serverPort = self.__control.configure().getPort()
+        self.__connection.bind( ("", self.__serverPort) )
+        self.__connection.listen(1)
+        self.__peers = []
+        while 1:
+            i, addr = self.__connection.accept()
+            data = i.recv(8)
+            if (data.strip() == "CONNECT"):
+                if len(self.__peers) < self.__control.configure().getMaxPeers():
+                    print "Peer conectado..."
+                    self.__peers.append("Peer")
+                else:
+                    print "max peers!!"
+                    i.send("NO CONNECTION")
+            else:
+                data = data.split(':')
+                if (data[0] == "FINISH"):
+                    del self.__peers [int(data[1])]
+            
+            i.close()
         
     def setControl(self,  control):
         self.__control = control
@@ -38,11 +61,14 @@ class Server:
 class Configure:
     def __init__(self):
         self.__filesDir = ""
-        self.__maxPeersPerFile = 0
+        self.__maxPeers = 0
+        self.__port = 0
+    def getMaxPeers(self):
+        return self.__maxPeers
         
-    def getMaxPeersPerFile(self):
-        return self.__maxPeersPerFile
-
+    def getPort(self):
+        return self.__port
+        
     def readConfigure(self, file):
         config = open(file)
         str = config.read()
@@ -52,15 +78,21 @@ class Configure:
         for i in range( (pos+1), posFinal ):
             self.__filesDir+= str[i]
         
-        pos = str.find('maxPeersPerFile')
+        pos = str.find('maxPeer')
         pos =  str.find(' ', pos)
         posFinal = str.find(';', pos)
-        maxPeer = ''
+        tmp = ""
         for i in range( (pos+1), posFinal ):
-            maxPeer+= str[i]
-        self.__maxPeersPerFile = int(maxPeer)
+            tmp+= str[i]
+        self.__maxPeers = int(tmp)
         
-        return self.__filesDir
+        pos = str.find('port')
+        pos =  str.find(' ', pos)
+        posFinal = str.find(';', pos)
+        port = ''
+        for i in range( (pos+1), posFinal ):
+            port+= str[i]
+        self.__port = int(port)
 
 
 class Files():
@@ -122,9 +154,14 @@ class peer():
         return self.__port
 
 class Control():
-    def __init__(self):
+    def __init__(self,  configure):
         self.__peers = []
         self.__files = []
+        self.__configure = configure
+        
+    def configure(self):
+        return configure
+        
     def addPeer(self, peer):
         if peer not in self.__peers:
             self.__peers.append(peer)
@@ -151,7 +188,9 @@ class Control():
             file.setNextPeer()
             return peers[nextPeer].getIP()+':'+str(peers[nextPeer].getPort())+':'+file.getHash()
         else:
-            print 'Arquivo naum encontrado'
+            print 'Arquivo não encontrado'
+            return "FILE NOT FOUND"
+            
 
 def upd(m, data):
        m.update(data)
@@ -168,8 +207,7 @@ def calculate(fname, block_size):
 block_size = 0x100000
 configure = Configure()
 
-filesList = []
-filesDir = configure.readConfigure("tracker.conf")
+configure.readConfigure("tracker.conf")
 
 cont = 0
 peer = peer()
@@ -183,9 +221,12 @@ files = []
 files.append(file)
 files.append(file1)
 peer.addFilesShared(files)
-control = Control()
+control = Control(configure)
 control.addPeer(peer)
 control.addPeer(peer)
 print control.findFile('Blah')
+print configure.getMaxPeers()
 
-print configure.getMaxPeersPerFile()
+server = Server()
+server.setControl(control)
+server.start()
