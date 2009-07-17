@@ -242,11 +242,12 @@ class Control():
         self.addPeer(peer)
         
     def addPeer(self, peer):
-        if peer not in self.__peers:
-            self.__peers.append(peer)
-        else:
-            self.removePeer(peer)
-            self.__peers.append(peer)
+        for i in self.__peers:
+            if peer.getPort() ==  i.getPort():
+                if peer.getIP() == i.getIP():
+                    self.removePeer(peer)
+                    break
+        self.__peers.append(peer)
         for file in peer.getFilesShared():
             self.__files.append(file)
             file.addPeer(peer)
