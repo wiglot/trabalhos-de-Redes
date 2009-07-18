@@ -224,6 +224,10 @@ class Control():
         self.__files = []
         self.__configure = configure
         
+    def getPeers(self):
+    	return self.__peers
+    def getFiles(self):
+    	return self.__files
     def configure(self):
         return configure
         
@@ -374,3 +378,9 @@ while 1:
 	read= str(raw_input("$>"))
 	if read.upper() in ["EXIT","QUIT","SAIR"]:
 		exit()
+	elif read.upper() in ["PEER", "PEERS"]:
+		for i in control.getPeers():
+			print i.getIP(), " - ",i.getPort()
+	elif read.upper() in ["FILE", "FILES"]:
+		for i in control.getFiles():
+			print str(i.getNumPeers()), " - ", i.getName(), " - ", str(i.getSize()), " - ", i.getHash()
