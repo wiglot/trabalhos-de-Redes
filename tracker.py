@@ -131,11 +131,6 @@ class Configure:
     def readConfigure(self, file):
         config = open(file)
         str = config.read()
-        pos = str.find('shared')
-        pos =  str.find(' ', pos)
-        posFinal = str.find(';', pos)
-        for i in range( (pos+1), posFinal ):
-            self.__filesDir+= str[i]
         
         pos = str.find('maxPeer')
         pos =  str.find(' ', pos)
