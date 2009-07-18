@@ -3,23 +3,28 @@ from hashlib import md5
 from threading import  Thread
 import os,  socket
 
-class ConnectPeer:
+class ConnectPeer(Thread):
     def __init__(self,  port,  control,  position):
-#        Thread.__init__()self)
+        Thread.__init__(self)
         self.__port = port
         self.__control = control
         self.__position = position
+        self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+#        self.__conn.settimeout(15)
+        self.__conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        while 1:
+                try:
+                    self.__conn.bind( ("", self.__port) )
+                    self.__conn.listen(1)
+                    break
+                except:
+                    self.__port += 1
+                    
     def port(self):
         return self.__port
     def run(self):
-
-        self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        self.__conn.settimeout(15)
-        self.__conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        
         try:
-            self.__conn.bind( ("", self.__port) )
-            self.__conn.listen(1)
 
             i, addr = self.__conn.accept()
             data = i.recv(12)
@@ -59,25 +64,34 @@ class Server:
         self.__serverPort = configure.getPort()
         self.__connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__connection.bind( ("", self.__serverPort) )
-        self.__connection.settimeout(15)
+#        self.__connection.settimeout(15)
         self.__connection.listen(1)
         self.__peers = []
+        for i in range(0,  configure.getMaxPeers()):
+            self.__peers.append(0)
+            
         while 1:
             try:
                 i, addr = self.__connection.accept()
                 data = i.recv(8)
                 
                 if (data.strip() == "CONNECT"):
-                    if len(self.__peers) < configure.getMaxPeers():
-                        print "Peer conectado...",  len(self.__peers)
-                        peer = ConnectPeer(configure.getInitialPort()+len(self.__peers) + 1,  self.__control,  len(self.__peers))
-                        self.__peers.append(peer)
+                    k = -1
+                    try:
+                        k = self.__peers.index(0)
+                    except:
+                        pass  
+                    if (k >= 0):
+                        print "Peer conectado...",  k
+                        peer = ConnectPeer(configure.getInitialPort(),  self.__control,  k)
+                        self.__peers[k] = peer
+                        peer.start()
                         i.send(str(peer.port()))
-                        print str(peer.port())
+#                        print str(peer.port())
                         i.close()
-                        peer.run()
+                        
                     else:
-                        print "max peers!!"
+                        print "max peers at tracker...!!"
                         i.send("NO CONNECTION")
                 elif data.strip() == 'LIST':
                     i.send(self.__control.listOfFiles())
@@ -89,13 +103,14 @@ class Server:
                 else:
                     data = data.split(':')
                     if (data[0] == "FINISH"):
-                        self.__peers [int(data[1])]
-                        del self.__peers [int(data[1])]
+                        self.__peers [int(data[1])] = 0
+#                        del self.__peers [int(data[1])]
                         print 'peer desconectado',  int(data[1])
                 
                 i.close()
             except:
                 pass
+                
     def setControl(self,  control):
         self.__control = control
     

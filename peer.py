@@ -78,7 +78,7 @@ class ConnectedPeer(Thread):
                     self.__port += 1
 
     def run(self):
-        print 'Teste...',  self.__port
+#        print 'Teste...',  self.__port
         i, addr = self.listening_socket.accept()
         data = i.recv(2048)
         indice = 0
@@ -349,7 +349,7 @@ class Peer:
                         
                         connServer.send("CONNECT")
                         newPort = int(connServer.recv(8))
-                        print newPort
+#                        print newPort
                         connServer.close()
                         
                         newConn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
@@ -390,7 +390,7 @@ class Peer:
                                 fetch.start()
                 except:
                     print "Can't connect to tracker ",  self.__configure.getServerIP(), ':', newPort
-                    print "Change tracker at 'peer.conf' and try again."
+                    print "Change tracker config at 'peer.conf' and try again."
                     pass
                             
     def sendInfo(self,  connection):
