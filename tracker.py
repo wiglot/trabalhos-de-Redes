@@ -3,9 +3,9 @@ from hashlib import md5
 from threading import  Thread
 import os,  socket
 
-class ConnectPeer(Thread):
+class ConnectPeer:
     def __init__(self,  port,  control,  position):
-        Thread.__init__(self)
+#        Thread.__init__()self)
         self.__port = port
         self.__control = control
         self.__position = position
@@ -15,11 +15,12 @@ class ConnectPeer(Thread):
 
         self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         self.__conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__conn.bind( ("", self.__port) )
-        self.__conn.listen(1)
-    
-        i, addr = self.__conn.accept()
+        
         try:
+            self.__conn.bind( ("", self.__port) )
+            self.__conn.listen(1)
+
+            i, addr = self.__conn.accept()
             data = i.recv(12)
             if data.strip() == "I AM HERE":
                 i.send("YOU CHANGED?")
@@ -68,6 +69,7 @@ class Server:
                     peer = ConnectPeer(configure.getInitialPort()+len(self.__peers) + 1,  self.__control,  len(self.__peers))
                     self.__peers.append(peer)
                     i.send(str(peer.port()))
+                    print str(peer.port())
                     peer.run()
                 else:
                     print "max peers!!"
@@ -178,6 +180,8 @@ class Files():
         return self.__peer
     def getNextPeer(self):
         return self.__nextPeer
+    def getNumPeers(self):
+        return len(self.__peer)
 
 class Peer():
     def __init__(self):
@@ -209,6 +213,7 @@ class Control():
     def listOfFiles(self):
         data = ''
         for i in self.__files:
+            data += ':' + str(i.getNumPeers())
             data += ':' + i.getName()
             data += ':' + str(i.getSize())
             data += ':' + i.getHash()
@@ -223,15 +228,17 @@ class Control():
         
         print addr + ":"+ str(port)
         del data[0]
-        
+#        print len(data)
         fileList = []
         size = 0
         name = ''
         for i in range(0,  len(data)):
             if i % 3 == 0:
                 name = data[i]
+#                print name
             elif i%3 == 1:
                 size = int (data[i])
+#                print size
             else:
                 file = Files()
                 file.setSize(size)
@@ -240,23 +247,38 @@ class Control():
                 fileList.append(file)
                 name = ''
                 size = 0
+#                print file.getName()
         peer = Peer()
         peer.setIP(addr)
         peer.setPort(port)
+        
         peer.addFilesShared(fileList)
+#        print 'Num arquivos compartilhados ',  peer.getFilesShared()
         self.addPeer(peer)
         
     def addPeer(self, peer):
+        noFile = 1
         for i in self.__peers:
-            if peer.getPort() ==  i.getPort():
-                if peer.getIP() == i.getIP():
-                    self.removePeer(peer)
-                    break
+            if peer.getPort() ==  i.getPort() and peer.getIP() == i.getIP():
+                    print 'peer existente, removendo'
+                    self.removePeer(i)
+#                    break
+        print 'adicionando novo peer'
         self.__peers.append(peer)
-        for file in peer.getFilesShared():
-            self.__files.append(file)
-            file.addPeer(peer)
-            print file.getName()
+        
+        for newFile in peer.getFilesShared():
+            noFile = 1
+#            print 'testando novo arquivo', newFile.getName()
+            for file in self.__files:
+                if newFile.getName() == file.getName():
+#                    print 'encontrou um aquivo'
+                    file.addPeer(peer)
+                    noFile = 0
+                    #break
+            if noFile:
+                self.__files.append(newFile)
+                newFile.addPeer(peer)
+#            print newFile.getName()
     
     def removePeerAddress(self,  ip,  port):
         for i in self.__peers:
@@ -264,9 +286,16 @@ class Control():
                 self.removePeer(i)
     
     def removePeer(self,  peer):
+        self.__peers.remove(peer)
+        
         for f in self.__files:
-            if peer in f.getPeersList():
-                f.removePeer(peer)
+            f.removePeer(peer)
+            
+        for f in range(0,  len(self.__files)):
+            if f < len(self.__files):
+                if not  self.__files[f].getPeersList():
+                    del self.__files[f]
+                    f = 0
 
     def findFile(self,  name):
         found = 0
