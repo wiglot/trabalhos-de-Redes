@@ -1,0 +1,50 @@
+Sistema p2p usando python e tracker centralizado para aquisição de informações de arquivos disponíveis na rede e lista de peers com tais arquivos.
+
+é necessário configurar, tanto peer.conf e tracker.conf.
+
+no tracker.conf, é necessário configurar a porta que o tracker escutará (port). Esse valor da porta deverá ser passado para para todos os peers para eles efetuarem a conexão com o tracker.
+
+É possível alterar configurações de numero máximo de peers que podem se conectar ao mesmo tempo no tracker e a porta que o tracker iniciará a abrir as portas extras (sequencialmente) para os peers trocarem informações.
+
+peer.conf mantém as configurações do peer tais como porta que o peer escutará por pedidos de conexões, porta inicial que o peer abrirá novas conexões (sequencialmente), máximo de peers conectados ao mesmo tempo, endereço e porta do tracker e ao qual o peer se conectará.
+
+Para executar o sistema todo(teste), pode ser utilizados os parâmetros de exemplo abaixo
+#tracker.conf
+#Porta que o servidor escutará por conexões iniciais
+#esse valor deve ser configurado nos peers.
+port 2521;
+
+#Numero máximo de peers conectados ao mesmo tempo no tracker. 
+#Não precisa ser um número muito alto, as conexões são rápidas
+maxPeer 3;
+
+#Porta utilizada para conexões de troca de dados. 
+#As portas serão todas as portas livres acima deste valor
+initialPort 10000;
+
+#peer.conf
+#Porta que esse peer irá ouvir conexão de outros peers.
+peerPort 3333;
+
+#diretorio com arquivos a serem compartilhados.
+shared files;
+
+#Numero máximo de peers que podem se conectar ao mesmo tempo a esse peer. 
+maxPeers 3;
+
+#Endereço IP do tracker
+serverIP 127.0.0.1;
+
+#Porta que o servidor estará ouvindo.
+serverPort 2521;
+
+Após configurado o peer para conexão local com o tracker, basta apenas rodar ambos (não existe ordem específica).
+$python tracker.py
+e em outro terminal
+$python peer.py
+
+O peer somente envia sua lista de aquivos para o tracker quando é feita uma solicitação de novos aquivos. comandos como list e rehash não enviam a lista para o tracker.
+Ao sair do peer (quit), o peer irá conectar ao tracker e avisar que está saindo, assim, o tracker remove o peer dos arquivos, mas não os arquivos.
+
+Ao pedir um aquivo, o tracker devolve o próximo peer da lista de peers que contém o arquivo pedido.
+

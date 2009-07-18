@@ -53,13 +53,14 @@ class ConnectPeer(Thread):
         conn.close()
         self.__conn.close()
         
-class Server:
+class Server(Thread):
     def __init__(self):
+    	Thread.__init__(self)
         self.__serverPort = 0
         self.__control = 0
         self.__connection = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         
-    def start(self):
+    def run(self):
         configure = self.__control.configure()
         self.__serverPort = configure.getPort()
         self.__connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -131,11 +132,6 @@ class Configure:
     def readConfigure(self, file):
         config = open(file)
         str = config.read()
-        pos = str.find('shared')
-        pos =  str.find(' ', pos)
-        posFinal = str.find(';', pos)
-        for i in range( (pos+1), posFinal ):
-            self.__filesDir+= str[i]
         
         pos = str.find('maxPeer')
         pos =  str.find(' ', pos)
@@ -312,11 +308,11 @@ class Control():
         for f in self.__files:
             f.removePeer(peer)
             
-        for f in range(0,  len(self.__files)):
-            if f < len(self.__files):
-                if not  self.__files[f].getPeersList():
-                    del self.__files[f]
-                    f = 0
+#        for f in range(0,  len(self.__files)):
+#            if f < len(self.__files):
+#                if not  self.__files[f].getPeersList():
+#                    del self.__files[f]
+#                    f = 0
 
     def findFile(self,  name):
         found = 0
@@ -373,3 +369,8 @@ control = Control(configure)
 server = Server()
 server.setControl(control)
 server.start()
+
+while 1:
+	read= str(raw_input("$>"))
+	if read.upper() in ["EXIT","QUIT","SAIR"]:
+		exit()
