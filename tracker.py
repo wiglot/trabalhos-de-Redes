@@ -14,6 +14,7 @@ class ConnectPeer:
     def run(self):
 
         self.__conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+        self.__conn.settimeout(15)
         self.__conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
         try:
@@ -58,38 +59,43 @@ class Server:
         self.__serverPort = configure.getPort()
         self.__connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.__connection.bind( ("", self.__serverPort) )
+        self.__connection.settimeout(15)
         self.__connection.listen(1)
         self.__peers = []
         while 1:
-            i, addr = self.__connection.accept()
-            data = i.recv(8)
-            if (data.strip() == "CONNECT"):
-                if len(self.__peers) < configure.getMaxPeers():
-                    print "Peer conectado...",  len(self.__peers)
-                    peer = ConnectPeer(configure.getInitialPort()+len(self.__peers) + 1,  self.__control,  len(self.__peers))
-                    self.__peers.append(peer)
-                    i.send(str(peer.port()))
-                    print str(peer.port())
-                    peer.run()
-                else:
-                    print "max peers!!"
-                    i.send("NO CONNECTION")
-            elif data.strip() == 'LIST':
-                i.send(self.__control.listOfFiles())
-            elif data.strip() == 'I QUIT':
-                i.send("PORT")
-                data = int(i.recv(8).strip())
-                self.__control.removePeerAddress(addr[0],  data)
+            try:
+                i, addr = self.__connection.accept()
+                data = i.recv(8)
                 
-            else:
-                data = data.split(':')
-                if (data[0] == "FINISH"):
-                    self.__peers [int(data[1])]
-                    del self.__peers [int(data[1])]
-                    print 'peer desconectado',  int(data[1])
-            
-            i.close()
-        
+                if (data.strip() == "CONNECT"):
+                    if len(self.__peers) < configure.getMaxPeers():
+                        print "Peer conectado...",  len(self.__peers)
+                        peer = ConnectPeer(configure.getInitialPort()+len(self.__peers) + 1,  self.__control,  len(self.__peers))
+                        self.__peers.append(peer)
+                        i.send(str(peer.port()))
+                        print str(peer.port())
+                        i.close()
+                        peer.run()
+                    else:
+                        print "max peers!!"
+                        i.send("NO CONNECTION")
+                elif data.strip() == 'LIST':
+                    i.send(self.__control.listOfFiles())
+                elif data.strip() == 'I QUIT':
+                    i.send("PORT")
+                    data = int(i.recv(8).strip())
+                    self.__control.removePeerAddress(addr[0],  data)
+                    
+                else:
+                    data = data.split(':')
+                    if (data[0] == "FINISH"):
+                        self.__peers [int(data[1])]
+                        del self.__peers [int(data[1])]
+                        print 'peer desconectado',  int(data[1])
+                
+                i.close()
+            except:
+                pass
     def setControl(self,  control):
         self.__control = control
     

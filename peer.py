@@ -59,11 +59,13 @@ class Files():
         return self.__peer
 
 class ConnectedPeer(Thread):
-    def __init__(self,  port,  filesList = [],  filesDir = ""):
+    def __init__(self,  port,  configure,  posicao):
             Thread.__init__(self)
             self.__port = int(port)
-            self.__filesList = filesList
-            self.__filesDir = filesDir
+            self.__filesList = configure.getFilesList()
+            self.__filesDir = configure.getFilesDir()
+            self.__configure = configure
+            self.__posicao = posicao
             
             self.listening_socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
             self.listening_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -99,6 +101,12 @@ class ConnectedPeer(Thread):
         i.close()
         del i
         self.listening_socket.close()
+        
+        finish = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+        finish.connect(('127.0.0.1', self.__configure.getPort()))
+        finish.send('FINISH:'+str(self.__posicao))
+        
+        
     def getPort(self):
         return self.__port
         
@@ -106,34 +114,42 @@ class ConnectionsHandler(Thread):
     def __init__(self,  configure):
             Thread.__init__(self)
             self.__peers = []
+            for i in range(0, configure.getMaxPeers()):
+                self.__peers.append(0)
             self.__port = configure.getPort()
             self.__initialPort = 12000
             self.__filesList = configure.getFilesList()
+            self.__configure = configure
             self.listening_socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
             self.listening_socket.bind( ("", self.__port) )
             self.listening_socket.listen(1)
 
     def run(self):
-            print 'my run...'
+            print 'Iniciado serviço de compartilhamento...'
             while (1):
                 i, addr = self.listening_socket.accept()
                 data = i.recv(64)
                 if data.strip() in ["CONNECT"]:
-                    if len(self.__peers) < configure.getMaxPeers():
-                        i.send(str(self.connectPeer()))
-                    else:
-                        i.send("NO CONNECTION")
+#                    if len(self.__peers) < configure.getMaxPeers():
+                    k = -1
+                    try:
+                        k = self.__peers.index(0)
+                    except:
+                        i.send("NO CONNECTION")    
+                    if (k >= 0):
+                        i.send(str(self.connectPeer(k)))
+                    
                 elif data.strip() == "ARE YOU ALIVE?":
                     i.send("YES, I AM.")
                 else:
                     data = data.split(':')
                     if (data[0] == "FINISH"):
-                        del self.__peers [int(data[1])]
+                        self.__peers [int(data[1])] = 0
                 i.close()
 
-    def connectPeer(self):
-            newPeer = ConnectedPeer(self.__initialPort,  self.__filesList)
-            self.__peers.append(newPeer)
+    def connectPeer(self,  position):
+            newPeer = ConnectedPeer(self.__initialPort,  self.__configure,  position)
+            self.__peers[position] = newPeer
             newPeer.start()
             return newPeer.getPort()
 
@@ -224,17 +240,21 @@ class FetchFile(Thread):
         self.__peerPort = peerPort
         self.__hash = expectedHash
     def run(self):
-        print "my thread!"
+#        print "my thread!"
         self.__fetchFile__()
         print "end of transfer: "+self.__fileName
     def __fetchFile__(self):
         conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        conn.connect((self.__peerIP, (self.__peerPort)))
-        
+        try:
+            conn.connect((self.__peerIP, (self.__peerPort)))
+        except:
+            print 'Peer não respondeu,  ele está ligado?'
+            return
+            
         conn.send("CONNECT")
         data = conn.recv(64)
         if data.strip() == 'NO CONNECTION':
-            print 'No connection to peer'
+            print 'Peer atingiu limite de conexões. Tente novamente'
 #            Pode enviar uma mensagem por socket pro peer pra ele avisar que o peer destino não respondeu...
             return
             
@@ -280,7 +300,6 @@ class Peer:
         self.__handler = ConnectionsHandler(configure)
         self.__handler.start()
         
-        
         while (1):
             #Espera entrada do usuário para receber o nome do arquivo
             filename = str(raw_input("Digite o nome de um arquivo('quit' para sair. 'rehash' novos arquivos): "))
@@ -304,7 +323,8 @@ class Peer:
             else:
                 try:
                     connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-                    connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+                    newPort = self.__configure.getServerPort()
+                    connServer.connect((self.__configure.getServerIP(), (newPort)))
                     if filename.upper() == 'LIST':
     #                    connList = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
     #                    connList.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
@@ -369,7 +389,7 @@ class Peer:
                                 fetch.setFileData(filename,  peerIP,  peerPort,  hash)
                                 fetch.start()
                 except:
-                    print "Can't connect to tracker ",  self.__configure.getServerIP(), ':', self.__configure.getServerPort()
+                    print "Can't connect to tracker ",  self.__configure.getServerIP(), ':', newPort
                     print "Change tracker at 'peer.conf' and try again."
                     pass
                             
