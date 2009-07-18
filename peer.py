@@ -229,15 +229,20 @@ class FetchFile(Thread):
         print "end of transfer: "+self.__fileName
     def __fetchFile__(self):
         conn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        connect2 = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-        
         conn.connect((self.__peerIP, (self.__peerPort)))
+        
         conn.send("CONNECT")
         data = conn.recv(64)
+        if data.strip() == 'NO CONNECTION':
+            print 'No connection to peer'
+#            Pode enviar uma mensagem por socket pro peer pra ele avisar que o peer destino não respondeu...
+            return
+            
         newPeerPort = int(data)
         conn.close()
         del conn
         
+        connect2 = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
         connect2.connect((self.__peerIP, (newPeerPort)))
         connect2.send(str(self.__fileName))
         data = connect2.recv(2)
@@ -281,74 +286,87 @@ class Peer:
             filename = str(raw_input("Digite o nome de um arquivo('quit' para sair. 'rehash' novos arquivos): "))
             if filename.upper() == 'QUIT':
                 del self.__handler
-                exit()
+                try:
+                    connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+                    connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+                    connServer.send("I QUIT")
+                    data = connServer.recv(8)
+                    if data.strip() == "PORT":
+                        connServer.send(str(self.__configure.getPort()))
+                except:
+                    exit()
+                exit()   
             if filename.upper() == 'REHASH':
                 self.refreshFiles()
             elif filename == '':
                 pass
             else:
-                connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-                connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
-                if filename.upper() == 'LIST':
-#                    connList = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-#                    connList.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
-                    connServer.send("LIST")
-                    data = ''
-                    while 1:
-                        newData = connServer.recv(1024)
-                        if not newData:
-                            break
-                        data += newData
-                    data = data.split(':')
-                    for i in range(0,  len(data),  3):
-                        if len(data)-1 >=2:
-                            print data[i], ' - ' , data[i+1], ' - ',  data[i+2]
-                    connServer.close()
-                else:
-#                    connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-#                    connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
-                    
-                    connServer.send("CONNECT")
-                    newPort = int(connServer.recv(8))
-                    connServer.close()
-                    
-                    newConn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
-                    newConn.connect((self.__configure.getServerIP(),  newPort))
-                    newConn.send("I AM HERE")
-                    data = newConn.recv(16)
-                    if data.strip() == "YOU CHANGED?":
-                        if self.__newFiles:
-                            newConn.send("YES")
-    #                    Aqui envia as informações do peer
-                            data = newConn.recv(16)
-                            if data.strip() == 'TELL ME':
-                                self.sendInfo(newConn)
-                                data = newConn.recv(8)
-                                if (data.strip() == 'OK'):
-                                    self.__newFiles = 0
-                        else:
-                            newConn.send("NO")
-                        data = newConn.recv(12)
-                        if data.strip() == "SAY FILE":
-                            newConn.send(filename)
-                            data = newConn.recv(1024)
-                        newConn.close()
-                        del newConn
-                    
-    #                Possivel retorno do servidor...
-                        data = data.rsplit(':')
-                        if len(data)==1:
-    #                Aquivo não encontrado...
-                            print "File not found"
-                        else:
-                            peerIP = data[0]
-                            peerPort = int(data[1])
-                            hash = data[2]
-                        #pede o arquivo para o peer.
-                            fetch = FetchFile()
-                            fetch.setFileData(filename,  peerIP,  peerPort,  hash)
-                            fetch.start()
-                            
+                try:
+                    connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+                    connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+                    if filename.upper() == 'LIST':
+    #                    connList = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+    #                    connList.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+                        connServer.send("LIST")
+                        data = ''
+                        while 1:
+                            newData = connServer.recv(1024)
+                            if not newData:
+                                break
+                            data += newData
+                        data = data.split(':')
+                        for i in range(0,  len(data),  3):
+                            if len(data)-1 >=2:
+                                print data[i], ' - ' , data[i+1], ' - ',  data[i+2]
+                        connServer.close()
+                    else:
+    #                    connServer = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+    #                    connServer.connect((self.__configure.getServerIP(), (self.__configure.getServerPort())))
+                        
+                        connServer.send("CONNECT")
+                        newPort = int(connServer.recv(8))
+                        connServer.close()
+                        
+                        newConn = socket.socket( socket.AF_INET, socket.SOCK_STREAM )
+                        newConn.connect((self.__configure.getServerIP(),  newPort))
+                        newConn.send("I AM HERE")
+                        data = newConn.recv(16)
+                        if data.strip() == "YOU CHANGED?":
+                            if self.__newFiles:
+                                newConn.send("YES")
+        #                    Aqui envia as informações do peer
+                                data = newConn.recv(16)
+                                if data.strip() == 'TELL ME':
+                                    self.sendInfo(newConn)
+                                    data = newConn.recv(8)
+                                    if (data.strip() == 'OK'):
+                                        self.__newFiles = 0
+                            else:
+                                newConn.send("NO")
+                            data = newConn.recv(12)
+                            if data.strip() == "SAY FILE":
+                                newConn.send(filename)
+                                data = newConn.recv(1024)
+                            newConn.close()
+                            del newConn
+                        
+        #                Possivel retorno do servidor...
+                            data = data.rsplit(':')
+                            if len(data)==1:
+        #                Aquivo não encontrado...
+                                print "File not found"
+                            else:
+                                peerIP = data[0]
+                                peerPort = int(data[1])
+                                hash = data[2]
+                            #pede o arquivo para o peer.
+                                fetch = FetchFile()
+                                fetch.setFileData(filename,  peerIP,  peerPort,  hash)
+                                fetch.start()
+                except:
+                    print "Can't connect to tracker ",  self.__configure.getServerIP(), ':', self.__configure.getServerPort()
+                    print "Change tracker at 'peer.conf' and try again."
+                    pass
                             
     def sendInfo(self,  connection):
         info = str(configure.getPort()) 
@@ -357,6 +375,8 @@ class Peer:
             info +=':'+ str(i.getSize() )
             info +=':'+ i.getHash()
         connection.send(info)
+        
+        
 block_size = 0x100000
 configure = Configure()
 configure.readConfigure("peer.conf")

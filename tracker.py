@@ -74,6 +74,11 @@ class Server:
                     i.send("NO CONNECTION")
             elif data.strip() == 'LIST':
                 i.send(self.__control.listOfFiles())
+            elif data.strip() == 'I QUIT':
+                i.send("PORT")
+                data = int(i.recv(8).strip())
+                self.__control.removePeerAddress(addr[0],  data)
+                
             else:
                 data = data.split(':')
                 if (data[0] == "FINISH"):
@@ -252,6 +257,11 @@ class Control():
             self.__files.append(file)
             file.addPeer(peer)
             print file.getName()
+    
+    def removePeerAddress(self,  ip,  port):
+        for i in self.__peers:
+            if i.getIP() == ip and i.getPort() == port:
+                self.removePeer(i)
     
     def removePeer(self,  peer):
         for f in self.__files:
