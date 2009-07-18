@@ -363,7 +363,7 @@ class Peer:
                                 data = newConn.recv(16)
                                 if data.strip() == 'TELL ME':
                                     self.sendInfo(newConn)
-                                    data = newConn.recv(8)
+                                    data = newConn.recv(2)
                                     if (data.strip() == 'OK'):
                                         self.__newFiles = 0
                             else:
